@@ -512,7 +512,9 @@ pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
                     [
                         (
                             "version".to_string(),
-                            code_version::version().to_string(),
+                            crate::version_compat::backend_compatible_version(
+                                code_version::version(),
+                            ),
                         ),
                     ]
                     .into_iter()
