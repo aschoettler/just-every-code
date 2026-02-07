@@ -9,6 +9,11 @@ rec {
     inherit env;
     pname = "code-rs";
     version = "0.1.0";
+    # Linux builders can OOM with the workspace release defaults
+    # (fat LTO + single codegen unit), which surfaces as
+    # "rustc was terminated by a deadly signal" in cargo-auditable.
+    CARGO_PROFILE_RELEASE_LTO = if pkgs.stdenv.isLinux then "off" else "fat";
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS = if pkgs.stdenv.isLinux then "16" else "1";
     cargoLock = {
       lockFile = ./Cargo.lock;
       outputHashes = {
