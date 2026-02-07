@@ -427,12 +427,71 @@ fn map_truncation_policy(
     }
 }
 
-/// Convert the build's version triple into a whole semver string.
+/// Convert the effective CLI version into a whole semver string.
 fn format_client_version_to_whole() -> String {
-    format!(
-        "{}.{}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR"),
-        env!("CARGO_PKG_VERSION_PATCH")
-    )
+    parse_semver_triplet(code_version::version())
+        .map(|(major, minor, patch)| format!("{major}.{minor}.{patch}"))
+        .unwrap_or_else(|| "0.0.0".to_string())
+}
+
+fn parse_semver_triplet(version: &str) -> Option<(u64, u64, u64)> {
+    let trimmed = version.trim().trim_start_matches('v');
+    let core = trimmed
+        .split_once('+')
+        .map_or(trimmed, |(value, _)| value);
+    let core = core
+        .split_once('-')
+        .map_or(core, |(value, _)| value);
+
+    let mut parts = core.split('.');
+    let major = parse_numeric_component(parts.next()?)?;
+    let minor = parse_numeric_component(parts.next()?)?;
+    let patch = parse_numeric_component(parts.next()?)?;
+
+    if parts.next().is_some() {
+        return None;
+    }
+
+    Some((major, minor, patch))
+}
+
+fn parse_numeric_component(component: &str) -> Option<u64> {
+    if component.is_empty() || !component.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    component.parse::<u64>().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_client_version_to_whole, parse_semver_triplet};
+
+    #[test]
+    fn parse_semver_triplet_accepts_plain_semver() {
+        assert_eq!(parse_semver_triplet("1.2.3"), Some((1, 2, 3)));
+    }
+
+    #[test]
+    fn parse_semver_triplet_accepts_prefixed_and_prerelease_versions() {
+        assert_eq!(parse_semver_triplet("v4.5.6"), Some((4, 5, 6)));
+        assert_eq!(parse_semver_triplet("7.8.9-beta.1+build.2"), Some((7, 8, 9)));
+    }
+
+    #[test]
+    fn parse_semver_triplet_rejects_invalid_versions() {
+        assert_eq!(parse_semver_triplet("1.2"), None);
+        assert_eq!(parse_semver_triplet("abc"), None);
+        assert_eq!(parse_semver_triplet("1.2.3.4"), None);
+        assert_eq!(parse_semver_triplet("1.two.3"), None);
+    }
+
+    #[test]
+    fn client_version_uses_release_version_not_workspace_default() {
+        let version = format_client_version_to_whole();
+        assert_ne!(
+            version, "0.0.0",
+            "client_version should be sourced from the release version"
+        );
+    }
 }

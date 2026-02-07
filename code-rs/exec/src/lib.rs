@@ -98,6 +98,14 @@ use code_core::timeboxed_exec_guidance::{
 /// may be about to start. Guarded so sub-agents are not delayed.
 const AUTO_REVIEW_SHUTDOWN_GRACE_MS: u64 = 1_500;
 
+fn preferred_auth_mode(using_chatgpt_auth: bool) -> code_protocol::mcp_protocol::AuthMode {
+    if using_chatgpt_auth {
+        code_protocol::mcp_protocol::AuthMode::ChatGPT
+    } else {
+        code_protocol::mcp_protocol::AuthMode::ApiKey
+    }
+}
+
 pub async fn run_main(cli: Cli, code_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()> {
     if let Err(err) = set_default_originator("code_exec") {
         tracing::warn!(?err, "Failed to set codex exec originator override {err:?}");
@@ -491,7 +499,7 @@ pub async fn run_main(cli: Cli, code_linux_sandbox_exe: Option<PathBuf>) -> anyh
 
     let auth_manager = AuthManager::shared_with_mode_and_originator(
         config.code_home.clone(),
-        code_protocol::mcp_protocol::AuthMode::ApiKey,
+        preferred_auth_mode(config.using_chatgpt_auth),
         config.responses_originator_header.clone(),
     );
     let conversation_manager = ConversationManager::new(auth_manager.clone(), SessionSource::Exec);
@@ -2655,8 +2663,24 @@ mod tests {
 	        SessionMetaLine, SessionSource, UserMessageEvent,
 	    };
 	    use filetime::{set_file_mtime, FileTime};
-	    use tempfile::TempDir;
-	    use uuid::Uuid;
+    use tempfile::TempDir;
+    use uuid::Uuid;
+
+    #[test]
+    fn preferred_auth_mode_uses_chatgpt_when_config_requests_it() {
+        assert_eq!(
+            preferred_auth_mode(true),
+            code_protocol::mcp_protocol::AuthMode::ChatGPT
+        );
+    }
+
+    #[test]
+    fn preferred_auth_mode_uses_api_key_otherwise() {
+        assert_eq!(
+            preferred_auth_mode(false),
+            code_protocol::mcp_protocol::AuthMode::ApiKey
+        );
+    }
 
 	    #[test]
 	    fn shutdown_state_schedules_grace_on_first_request() {

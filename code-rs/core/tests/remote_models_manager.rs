@@ -103,9 +103,19 @@ async fn refresh_remote_models_uses_cache_when_fresh() {
 
     let requests = server.received_requests().await.expect("requests");
     assert_eq!(requests.len(), 1);
+    let request_url = requests[0].url.as_str();
     assert!(
-        requests[0].url.as_str().contains("client_version="),
+        request_url.contains("client_version="),
         "expected client_version query param"
+    );
+    let client_version = request_url
+        .split("client_version=")
+        .nth(1)
+        .and_then(|tail| tail.split('&').next())
+        .expect("client_version query value");
+    assert_ne!(
+        client_version, "0.0.0",
+        "client_version should not use workspace default version"
     );
 
     // Second refresh should hit the fresh in-memory snapshot and avoid the network.

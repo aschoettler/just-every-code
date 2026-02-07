@@ -1253,6 +1253,7 @@ dependencies = [
  "code-git-tooling",
  "code-ollama",
  "code-protocol",
+ "code-version",
  "filetime",
  "libc",
  "once_cell",

@@ -1199,7 +1199,9 @@ fn notice_hidden(notices: &Notice, key: &str) -> bool {
 }
 
 fn auth_allows_target(auth_mode: AuthMode, target: &ModelPreset) -> bool {
-    !(matches!(auth_mode, AuthMode::ApiKey) && target.id.eq_ignore_ascii_case("gpt-5.2-codex"))
+    !matches!(auth_mode, AuthMode::ApiKey)
+        || (!target.id.eq_ignore_ascii_case("gpt-5.2-codex")
+            && !target.id.eq_ignore_ascii_case("gpt-5.3-codex"))
 }
 
 fn reasoning_effort_to_str(effort: ReasoningEffort) -> &'static str {
@@ -1493,5 +1495,35 @@ mod tests {
             .unwrap_or_else(|| "code".to_string());
 
         assert_eq!(derive_resume_command_name(None), expected);
+    }
+
+    #[test]
+    fn api_key_auth_disallows_gpt_5_2_codex_target() {
+        let target = all_model_presets()
+            .iter()
+            .find(|preset| preset.id == "gpt-5.2-codex")
+            .expect("gpt-5.2-codex preset");
+
+        assert!(!auth_allows_target(AuthMode::ApiKey, target));
+    }
+
+    #[test]
+    fn api_key_auth_disallows_gpt_5_3_codex_target() {
+        let target = all_model_presets()
+            .iter()
+            .find(|preset| preset.id == "gpt-5.3-codex")
+            .expect("gpt-5.3-codex preset");
+
+        assert!(!auth_allows_target(AuthMode::ApiKey, target));
+    }
+
+    #[test]
+    fn chatgpt_auth_allows_gpt_5_3_codex_target() {
+        let target = all_model_presets()
+            .iter()
+            .find(|preset| preset.id == "gpt-5.3-codex")
+            .expect("gpt-5.3-codex preset");
+
+        assert!(auth_allows_target(AuthMode::ChatGPT, target));
     }
 }
